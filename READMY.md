@@ -1,8 +1,8 @@
-TODO
+# TODO
 
-Multithreding in python loop in 291
-opjekt ditect index für synonyme Schue flaschen und Tasse
+- Multithreding in python loop in 291
+- opjekt ditect index für synonyme Schue flaschen und Tasse
 
-Optional
+## Optional
 - FIntuning CNN
 - Better DC
