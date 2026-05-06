@@ -75,7 +75,6 @@ class AlphaBot2(object):
         self.tr_sensor = TRSensors()
         self.servo = ServoController()
         self.servo.center()
-        self.servo.middle()
         self.camera_server = CameraServer()
         # LED Strip Initialization
         self.led_strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, LED_FREQ_HZ,
@@ -142,11 +141,14 @@ class AlphaBot2(object):
             )
 
             weight_path = "weights.h5"
-
+            print("l0")
             self.object_model.load_state_dict(torch.load(weight_path))
+            print("l1")
             self.object_model.eval()
+            print("l2")
             with open("imagenet1000_clsidx_to_labels.txt", "r") as f:
                 labels_dict = ast.literal_eval(f.read())
+                print("l3")
                 self.imagenet_classes = [labels_dict[i] for i in range(len(labels_dict))]
             print("Object recognition model loaded successfully.")
         except Exception as e:
@@ -307,7 +309,7 @@ if __name__ == '__main__':
         global stop_event
         while not stop_event:
             bot.recognize_object()
-            time.sleep(0.1)
+            time.sleep(1)
 
     def obstacle_loop():
         global stop_event
@@ -324,9 +326,9 @@ if __name__ == '__main__':
                         time.sleep(0.1)
 
 
-    process_drive = mp.Process(target=drive_loop)
-    process_vision = mp.Process(target=vision_loop)
-    process_obstacle = mp.Process(target=obstacle_loop)
+    process_drive = threading.Thread(target=drive_loop)
+    process_vision = threading.Thread(target=vision_loop)
+    process_obstacle = threading.Thread(target=obstacle_loop)
 
     process_drive.start()
     process_vision.start()
