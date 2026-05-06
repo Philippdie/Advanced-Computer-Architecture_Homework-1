@@ -295,39 +295,47 @@ if __name__ == '__main__':
     print("Min:", bot.tr_sensor.calibratedMin)
     print("Max:", bot.tr_sensor.calibratedMax)
 
-    def drive_loop():
-        global stop_event
-        while not stop_event:
-            bot.follow_line()
-            time.sleep(0.01)
-
-    def vision_loop():
-        global stop_event
-        while not stop_event:
-            bot.recognize_object()
-            time.sleep(0.1)
-
-    def obstacle_loop():
-        global stop_event
-        while not stop_event:
-            if bot.infrared_obstacle_check():
-                    bot.buzzer_on()
-                    time.sleep(0.1)
-                    bot.buzzer_off()
-
-    process_drive = mp.Process(target=drive_loop)
-    process_vision = mp.Process(target=vision_loop)
-    process_obstacle = mp.Process(target=obstacle_loop)
-
-    process_drive.start()
-    process_vision.start()
-    process_obstacle.start()
-
-
     try:
-        while not stop_event:
-            time.sleep(1)
-                        
+        FOLLOW_LINE_TESTS = 100
+        RECOGNIZE_OBJECT_TESTS = 30
+        OBSTACLE_CHECK_TESTS = 100
+
+        ## Follow line benchmark
+        start = time.perf_counter()
+        for i in range(FOLLOW_LINE_TESTS):
+            print(f"Follow line benchmark: {i / FOLLOW_LINE_TESTS:.2f}%", end="\r", flush=True)
+        end = time.perf_counter()
+        follow_line_total_time = end - start
+        follow_line_per_iteration = follow_line_total_time / FOLLOW_LINE_TESTS
+        print(
+            f"  total time         : {follow_line_total_time:.6f}"
+            f"  per iteration time : {follow_line_per_iteration:.6f}\n"
+        )
+
+        ## Recognize object benchmark
+        start = time.perf_counter()
+        for i in range(RECOGNIZE_OBJECT_TESTS):
+            print(f"Recognize object benchmark: {i / RECOGNIZE_OBJECT_TESTS:.2f}%", end="\r", flush=True)
+        end = time.perf_counter()
+        recognize_object_total_time = end - start
+        recognize_object_per_iteration = recognize_object_total_time / RECOGNIZE_OBJECT_TESTS
+        print(
+            f"  total time         : {recognize_object_total_time:.6f}"
+            f"  per iteration time : {recognize_object_per_iteration:.6f}\n"
+        )
+
+        ## Infrared obstacle check benchmark
+        start = time.perf_counter()
+        for i in range(OBSTACLE_CHECK_TESTS):
+            print(f"Obstacle check benchmark: {i / OBSTACLE_CHECK_TESTS:.2f}%", end="\r", flush=True)
+        end = time.perf_counter()
+        obstacle_check_total_time = end - start
+        obstacle_check_per_iteration = obstacle_check_total_time / OBSTACLE_CHECK_TESTS
+        print(
+            f"  total time         : {obstacle_check_total_time:.6f}"
+            f"  per iteration time : {obstacle_check_per_iteration:.6f}\n"
+        )
+
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected. Stopping execution.")
         stop_event = True
