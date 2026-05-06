@@ -136,46 +136,18 @@ class AlphaBot2(object):
     def load_object_recognition_model(self):
         try:
             self.object_model = models.quantization.mobilenet_v2(
-                weights=None,
+                weights=MobileNet_V2_QuantizedWeights.IMAGENET1K_QNNPACK_V1,
                 quantize=True
             )
-
-            weight_path = "weights.h5"
-            print("l0")
-            self.object_model.load_state_dict(torch.load(weight_path,weights_only=True))
-            print("l1")
             self.object_model.eval()
-            print("l2")
             with open("imagenet1000_clsidx_to_labels.txt", "r") as f:
                 labels_dict = ast.literal_eval(f.read())
-                print("l3")
                 self.imagenet_classes = [labels_dict[i] for i in range(len(labels_dict))]
             print("Object recognition model loaded successfully.")
         except Exception as e:
             print("Error loading object recognition model:", e)
             self.object_model = None
             self.imagenet_classes = None
-
-            """
-
-            self.object_model = models.quantization.mobilenet_v2(
-                weights=None,
-                quantize=True
-            )
-            checkpoint = torch.load(OBJECT_RECOGNITION_WEIGHTS_PATH, map_location="cpu")
-            if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
-                checkpoint = checkpoint["state_dict"]
-            self.object_model.load_state_dict(checkpoint)
-            self.object_model.eval()
-            with open(IMAGENET_LABELS_PATH, "r") as f:
-                labels_dict = ast.literal_eval(f.read())
-                self.imagenet_classes = [labels_dict[i] for i in range(len(labels_dict))]
-            print("Object recognition model loaded successfully.")
-        except Exception as e:
-            print("Error loading object recognition model:", e)
-            self.object_model = None
-            self.imagenet_classes = None
-"""
 
     def set_led(self, index, r, g, b):
         """Set a single LED's color."""
@@ -194,10 +166,10 @@ class AlphaBot2(object):
 
     def set_leds_default(self):
         """Set a default pattern on the LED strip."""
-        self.set_led(0, 255, 0, 0)    # Red
-        self.set_led(1, 0, 255, 0)    # Green
-        self.set_led(2, 0, 0, 255)    # Blue
-        self.set_led(3, 255, 255, 0)  # Yellow
+        #self.set_led(0, 255, 0, 0)    # Red
+        #self.set_led(1, 0, 255, 0)    # Green
+        #self.set_led(2, 0, 0, 255)    # Blue
+        #self.set_led(3, 255, 255, 0)  # Yellow
         self.update_leds()
         time.sleep(2)
         self.clear_leds()
@@ -250,11 +222,11 @@ class AlphaBot2(object):
                 bottle_classes = {440, 720, 737, 898, 907}
                 if top_idx.item() in shoe_classes:  # detect any shoe-related ImageNet class
                     self.set_led(0, 255, 0, 0)  # LED 1 red
-                elif top_idx.item() in mug_classes:     # screwdriver
+                elif top_idx.item() in mug_classes:     # coffee mug
                     self.set_led(1, 255, 255, 0)  # LED 2 yellow
-                elif top_idx.item() in bottle_classes:     # coffee mug
+                elif top_idx.item() in bottle_classes:     # bottle
                     self.set_led(2, 0, 255, 0)  # LED 3 green
-                self.set_led(2, 0, 255, 0)
+                #self.set_led(2, 0, 255, 0)
                 self.update_leds()
         except Exception as e:
             print(f"Error during object recognition: {e}")
@@ -347,14 +319,15 @@ if __name__ == '__main__':
                         time.sleep(0.1)
 
 
-    process_drive = threading.Thread(target=drive_loop)
+    #process_drive = threading.Thread(target=drive_loop)
     process_vision = threading.Thread(target=vision_loop)
-    process_obstacle = threading.Thread(target=obstacle_loop)
+    #process_obstacle = threading.Thread(target=obstacle_loop)
 
-    process_drive.start()
+    #process_drive.start()
     process_vision.start()
-    process_obstacle.start()
+    #process_obstacle.start()
 
+    time.sleep(2000)
 
     try:
         while not stop_event:
@@ -364,9 +337,9 @@ if __name__ == '__main__':
         print("KeyboardInterrupt detected. Stopping execution.")
         stop_event = True
     finally:
-        process_drive.join()
+        #process_drive.join()
         process_vision.join()
-        process_obstacle.join()
+        #process_obstacle.join()
         bot.stop()
         bot.stop_camera()
         bot.servo.stop()
