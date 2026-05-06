@@ -134,9 +134,13 @@ class AlphaBot2(object):
     def load_object_recognition_model(self):
         try:
             self.object_model = models.quantization.mobilenet_v2(
-                weights=MobileNet_V2_QuantizedWeights.IMAGENET1K_QNNPACK_V1,
+                weights=None,
                 quantize=True
             )
+
+            weight_path = "Additional Scripts/weights.h5"
+
+            self.object_model.load_state_dict(torch.load(weight_path))
             self.object_model.eval()
             with open("imagenet1000_clsidx_to_labels.txt", "r") as f:
                 labels_dict = ast.literal_eval(f.read())
