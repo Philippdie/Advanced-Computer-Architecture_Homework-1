@@ -142,7 +142,7 @@ class AlphaBot2(object):
 
             weight_path = "weights.h5"
             print("l0")
-            self.object_model.load_state_dict(torch.load(weight_path))
+            self.object_model.load_state_dict(torch.load(weight_path,weights_only=True))
             print("l1")
             self.object_model.eval()
             print("l2")
@@ -155,6 +155,27 @@ class AlphaBot2(object):
             print("Error loading object recognition model:", e)
             self.object_model = None
             self.imagenet_classes = None
+
+            """
+
+            self.object_model = models.quantization.mobilenet_v2(
+                weights=None,
+                quantize=True
+            )
+            checkpoint = torch.load(OBJECT_RECOGNITION_WEIGHTS_PATH, map_location="cpu")
+            if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+                checkpoint = checkpoint["state_dict"]
+            self.object_model.load_state_dict(checkpoint)
+            self.object_model.eval()
+            with open(IMAGENET_LABELS_PATH, "r") as f:
+                labels_dict = ast.literal_eval(f.read())
+                self.imagenet_classes = [labels_dict[i] for i in range(len(labels_dict))]
+            print("Object recognition model loaded successfully.")
+        except Exception as e:
+            print("Error loading object recognition model:", e)
+            self.object_model = None
+            self.imagenet_classes = None
+"""
 
     def set_led(self, index, r, g, b):
         """Set a single LED's color."""
