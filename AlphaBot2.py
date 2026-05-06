@@ -21,7 +21,11 @@ LED_CHANNEL    = 0
 # Global flag to shutdown
 stop_event = False
 # Proportional controller constant
+
 KP = 0.3
+KD = 1.5   
+KI = 0.01 
+
 CENTER = 2000  # Sensor center value
 SPEED = 10 
 
@@ -224,25 +228,20 @@ class AlphaBot2(object):
     # Follow Line
     def follow_line(self):
         position, sensors = bot.tr_sensor.readLine()
-        bot.setMotor(SPEED, SPEED)
+        
         proportional = position - CENTER
         derivative = proportional - bot.last_proportional
         bot.integral += proportional
         bot.last_proportional = proportional
-        power_difference = KP * proportional 
         
-        ### Line recovery
-        # black_count = sum(1 for v in sensors if v < 400)
-        # if black_count == 0:
-        # decide direction from last known error
-        # if bot.last_proportional > 0:
-            # bot.setMotor(SPEED, -SPEED)   # search right
-        # else:
-            # bot.setMotor(-SPEED, SPEED)   # search left
-        # bot.integral = 0
-        # continue
-
-        bot.setMotor(SPEED - power_difference, SPEED + power_difference)
+        
+        power_difference = (KP * proportional) + (KI * bot.integral) + (KD * derivative)
+        
+        
+        left_speed = SPEED - power_difference
+        right_speed = SPEED + power_difference
+        
+        bot.setMotor(left_speed, right_speed)       
 
  #########################################################################
 if __name__ == '__main__':
