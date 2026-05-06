@@ -1,8 +1,0 @@
- File "/home/student/robotlab/AlphaBot2.py", line 249, in <module>
-    bot = AlphaBot2()
-          ^^^^^^^^^^^
-  File "/home/student/robotlab/AlphaBot2.py", line 75, in __init__
-    self.led_strip.begin()
-  File "/home/student/.local/lib/python3.11/site-packages/rpi_ws281x/rpi_ws281x.py", line 143, in begin
-    raise RuntimeError('ws2811_init failed with code {0} ({1})'.format(resp, str_resp))
-RuntimeError: ws2811_init failed with code -5 (mmap() failed)
