@@ -2,7 +2,6 @@ import RPi.GPIO as GPIO
 from rpi_ws281x import Adafruit_NeoPixel, Color
 import torch
 from torchvision import models, transforms
-from torchvision.models.quantization import MobileNet_V2_QuantizedWeights
 import ast
 import time
 from CameraServerClass import CameraServer
@@ -24,6 +23,8 @@ stop_event = False
 KP = 0.3
 CENTER = 2000  # Sensor center value
 SPEED = 10 
+OBJECT_RECOGNITION_WEIGHTS_PATH = "Additional Scripts/weights.h5"
+IMAGENET_LABELS_PATH = "Additional Scripts/imagenet1000_clsidx_to_labels.txt"
 
 class AlphaBot2(object):
     def __init__(self):
@@ -129,11 +130,15 @@ class AlphaBot2(object):
     def load_object_recognition_model(self):
         try:
             self.object_model = models.quantization.mobilenet_v2(
-                weights=MobileNet_V2_QuantizedWeights.IMAGENET1K_QNNPACK_V1,
+                weights=None,
                 quantize=True
             )
+            checkpoint = torch.load(OBJECT_RECOGNITION_WEIGHTS_PATH, map_location="cpu")
+            if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+                checkpoint = checkpoint["state_dict"]
+            self.object_model.load_state_dict(checkpoint)
             self.object_model.eval()
-            with open("imagenet1000_clsidx_to_labels.txt", "r") as f:
+            with open(IMAGENET_LABELS_PATH, "r") as f:
                 labels_dict = ast.literal_eval(f.read())
                 self.imagenet_classes = [labels_dict[i] for i in range(len(labels_dict))]
             print("Object recognition model loaded successfully.")
