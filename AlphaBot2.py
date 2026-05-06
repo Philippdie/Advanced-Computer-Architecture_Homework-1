@@ -9,6 +9,7 @@ from CameraServerClass import CameraServer
 from TRSensors import TRSensors
 from ServoControllerClass import ServoController
 import threading
+import multiprocessing as mp
 
 # LED strip configuration constants:
 LED_COUNT      = 4      # Number of LED pixels.
@@ -314,13 +315,13 @@ if __name__ == '__main__':
                     time.sleep(0.1)
                     bot.buzzer_off()
 
-    thread_drive = threading.Thread(target=drive_loop)
-    thread_vision = threading.Thread(target=vision_loop)
-    thread_obstacle = threading.Thread(target=obstacle_loop)
+    process_drive = mp.Process(target=drive_loop)
+    process_vision = mp.Process(target=vision_loop)
+    process_obstacle = mp.Process(target=obstacle_loop)
 
-    thread_drive.start()
-    thread_vision.start()
-    thread_obstacle.start()
+    process_drive.start()
+    process_vision.start()
+    process_obstacle.start()
 
 
     try:
@@ -331,9 +332,9 @@ if __name__ == '__main__':
         print("KeyboardInterrupt detected. Stopping execution.")
         stop_event = True
     finally:
-        thread_drive.join()
-        thread_vision.join()
-        thread_obstacle.join()
+        process_drive.join()
+        process_vision.join()
+        process_obstacle.join()
         bot.stop()
         bot.stop_camera()
         bot.servo.stop()
