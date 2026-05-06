@@ -74,6 +74,8 @@ class AlphaBot2(object):
         # Initialize additional components
         self.tr_sensor = TRSensors()
         self.servo = ServoController()
+        self.servo.center()
+        self.servo.middle()
         self.camera_server = CameraServer()
         # LED Strip Initialization
         self.led_strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, LED_FREQ_HZ,
@@ -309,11 +311,18 @@ if __name__ == '__main__':
 
     def obstacle_loop():
         global stop_event
+        detected_object :int=1
         while not stop_event:
             if bot.infrared_obstacle_check():
-                    bot.buzzer_on()
-                    time.sleep(0.1)
-                    bot.buzzer_off()
+                    for _ in range(detected_object):
+                        bot.buzzer_on()
+                        time.sleep(1)
+                        bot.buzzer_off()
+                        time.sleep(0.4)
+                    detected_object +=1
+                    while bot.infrared_obstacle_check():
+                        time.sleep(0.1)
+
 
     process_drive = mp.Process(target=drive_loop)
     process_vision = mp.Process(target=vision_loop)
