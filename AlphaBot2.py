@@ -23,8 +23,8 @@ stop_event = False
 KP = 0.3
 CENTER = 2000  # Sensor center value
 SPEED = 10 
-OBJECT_RECOGNITION_WEIGHTS_PATH = "Additional Scripts/weights.h5"
-IMAGENET_LABELS_PATH = "Additional Scripts/imagenet1000_clsidx_to_labels.txt"
+OBJECT_RECOGNITION_WEIGHTS_PATH = "weights.h5"
+IMAGENET_LABELS_PATH = "Additional imagenet1000_clsidx_to_labels.txt"
 
 class AlphaBot2(object):
     def __init__(self):
