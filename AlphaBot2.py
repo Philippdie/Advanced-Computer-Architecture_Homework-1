@@ -290,6 +290,35 @@ if __name__ == '__main__':
     print("Min:", bot.tr_sensor.calibratedMin)
     print("Max:", bot.tr_sensor.calibratedMax)
 
+    def drive_loop():
+        global stop_event
+        while not stop_event:
+            bot.follow_line()
+            time.sleep(0.01)
+
+    def vision_loop():
+        global stop_event
+        while not stop_event:
+            bot.recognize_object()
+            time.sleep(0.1)
+
+    def obstacle_loop():
+        global stop_event
+        while not stop_event:
+            if bot.infrared_obstacle_check():
+                    bot.buzzer_on()
+                    time.sleep(0.1)
+                    bot.buzzer_off()
+
+    thread_drive = threading.Thread(target=drive_loop)
+    thread_vision = threading.Thread(target=vision_loop)
+    thread_obstacle = threading.Thread(target=obstacle_loop)
+
+    thread_drive.start()
+    thread_vision.start()
+    thread_obstacle.start()
+
+
     try:
         while not stop_event:
             ####### FOLLOW LINE
@@ -306,6 +335,9 @@ if __name__ == '__main__':
         print("KeyboardInterrupt detected. Stopping execution.")
         stop_event = True
     finally:
+        thread_drive.join()
+        thread_vision.join()
+        thread_obstacle.join()
         bot.stop()
         bot.stop_camera()
         bot.servo.stop()
