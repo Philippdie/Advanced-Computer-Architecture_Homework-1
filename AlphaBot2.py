@@ -224,7 +224,7 @@ class AlphaBot2(object):
                     self.set_led(0, 255, 0, 0)  # LED 1 red
                 elif top_idx.item() in mug_classes:     # coffee mug
                     self.set_led(1, 255, 255, 0)  # LED 2 yellow
-                elif top_idx.item() in bottle_classes:     # bottle
+                elif top_idx.item() in bottle_classes:     # bottle_classes
                     self.set_led(2, 0, 255, 0)  # LED 3 green
                 #self.set_led(2, 0, 255, 0)
                 self.update_leds()
