@@ -8,6 +8,7 @@ import time
 from CameraServerClass import CameraServer
 from TRSensors import TRSensors
 from ServoControllerClass import ServoController
+import threading
 
 # LED strip configuration constants:
 LED_COUNT      = 4      # Number of LED pixels.
@@ -214,12 +215,15 @@ class AlphaBot2(object):
                 probs = output[0].softmax(dim=0)
                 top_prob, top_idx = torch.max(probs, dim=0)
                 print(f"Object Recognition: {top_prob.item() * 100:.2f}% {self.imagenet_classes[top_idx.item()]}")
-                # if top_idx.item() == 761:       # remote control
-                    # self.set_led(0, 255, 0, 0)  # LED 1 red
-                # elif top_idx.item() == 784:     # screwdriver
-                    # self.set_led(1, 255, 255, 0)  # LED 2 yellow
-                # elif top_idx.item() == 504:     # coffee mug
-                    # self.set_led(2, 0, 255, 0)  # LED 3 green
+                shoe_classes = {514, 770, 774}
+                mug_classes = {504, 647, 948}
+                bottle_classes = {440, 720, 737, 898, 907}
+                if top_idx.item() in shoe_classes:  # detect any shoe-related ImageNet class
+                    self.set_led(0, 255, 0, 0)  # LED 1 red
+                elif top_idx.item() in mug_classes:     # screwdriver
+                    self.set_led(1, 255, 255, 0)  # LED 2 yellow
+                elif top_idx.item() in bottle_classes:     # coffee mug
+                    self.set_led(2, 0, 255, 0)  # LED 3 green
                 self.set_led(2, 0, 255, 0)
                 self.update_leds()
         except Exception as e:
