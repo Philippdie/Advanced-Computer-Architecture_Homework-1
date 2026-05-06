@@ -340,9 +340,6 @@ if __name__ == '__main__':
         print("KeyboardInterrupt detected. Stopping execution.")
         stop_event = True
     finally:
-        process_drive.join()
-        process_vision.join()
-        process_obstacle.join()
         bot.stop()
         bot.stop_camera()
         bot.servo.stop()
