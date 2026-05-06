@@ -321,15 +321,7 @@ if __name__ == '__main__':
 
     try:
         while not stop_event:
-            ####### FOLLOW LINE
-            bot.follow_line()         
-            ####### DETECT OBSTACLE
-            # if bot.infrared_obstacle_check():
-                # print("Obstacle detected!")
-            
-            bot.clear_leds()
-            ####### RECOGNIZE OBJECT
-            # bot.recognize_object()
+            time.sleep(1)
                         
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected. Stopping execution.")
