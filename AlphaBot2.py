@@ -138,7 +138,7 @@ class AlphaBot2(object):
                 quantize=True
             )
 
-            weight_path = "Additional Scripts/weights.h5"
+            weight_path = "weights.h5"
 
             self.object_model.load_state_dict(torch.load(weight_path))
             self.object_model.eval()
