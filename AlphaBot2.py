@@ -9,7 +9,7 @@ from CameraServerClass import CameraServer
 from TRSensors import TRSensors
 from ServoControllerClass import ServoController
 import threading
-import multiprocessing as mp
+#import multiprocessing as mp
 
 # LED strip configuration constants:
 LED_COUNT      = 4      # Number of LED pixels.
@@ -75,6 +75,8 @@ class AlphaBot2(object):
         self.tr_sensor = TRSensors()
         self.servo = ServoController()
         self.servo.center()
+        
+
         self.camera_server = CameraServer()
         # LED Strip Initialization
         self.led_strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, LED_FREQ_HZ,
@@ -234,20 +236,25 @@ class AlphaBot2(object):
     # Follow Line
     def follow_line(self):
         position, sensors = bot.tr_sensor.readLine()
-        
+        bot.setMotor(SPEED, SPEED)
         proportional = position - CENTER
         derivative = proportional - bot.last_proportional
         bot.integral += proportional
         bot.last_proportional = proportional
+        power_difference = KP * proportional 
         
-        
-        power_difference = (KP * proportional) + (KI * bot.integral) + (KD * derivative)
-        
-        
-        left_speed = SPEED - power_difference
-        right_speed = SPEED + power_difference
-        
-        bot.setMotor(left_speed, right_speed)       
+        ### Line recovery
+        # black_count = sum(1 for v in sensors if v < 400)
+        # if black_count == 0:
+        # decide direction from last known error
+        # if bot.last_proportional > 0:
+            # bot.setMotor(SPEED, -SPEED)   # search right
+        # else:
+            # bot.setMotor(-SPEED, SPEED)   # search left
+        # bot.integral = 0
+        # continue
+
+        bot.setMotor(SPEED - power_difference, SPEED + power_difference)    
 
  #########################################################################
 if __name__ == '__main__':
@@ -262,11 +269,11 @@ if __name__ == '__main__':
     bot.clear_leds()
 
     ####### CALIBRATION PHASE
-    # print("Calibrating... move robot over line")
+    print("Calibrating... move robot over line")
     # Manual
-    # while True:
-        # print(bot.tr_sensor.AnalogRead())
-        # time.sleep(0.1)
+    #while True:
+    #    print(bot.tr_sensor.AnalogRead())
+    #    time.sleep(0.1)
 
     # Automatic
     # for i in range(200):
@@ -285,7 +292,8 @@ if __name__ == '__main__':
     # print("Calibration done")
     # bot.tr_sensor.calibratedMin = [164, 142, 176, 138, 177]
     # bot.tr_sensor.calibratedMax = [971, 973, 975, 970, 978]
-    
+    # 183, 206 , 218 , 467 , 464 
+    # 
     bot.tr_sensor.calibratedMin = [210, 193, 218, 184, 247]
     bot.tr_sensor.calibratedMax = [956, 957, 960, 951, 949]
 
@@ -296,7 +304,7 @@ if __name__ == '__main__':
         global stop_event
         while not stop_event:
             bot.follow_line()
-            time.sleep(0.01)
+
 
     def vision_loop():
         global stop_event
@@ -319,15 +327,15 @@ if __name__ == '__main__':
                         time.sleep(0.1)
 
 
-    #process_drive = threading.Thread(target=drive_loop)
+    process_drive = threading.Thread(target=drive_loop)
     process_vision = threading.Thread(target=vision_loop)
-    #process_obstacle = threading.Thread(target=obstacle_loop)
+    process_obstacle = threading.Thread(target=obstacle_loop)
 
-    #process_drive.start()
+    process_drive.start()
     process_vision.start()
-    #process_obstacle.start()
+    process_obstacle.start()
 
-    time.sleep(2000)
+    #time.sleep(2000)
 
     try:
         while not stop_event:
@@ -337,9 +345,9 @@ if __name__ == '__main__':
         print("KeyboardInterrupt detected. Stopping execution.")
         stop_event = True
     finally:
-        #process_drive.join()
+        process_drive.join()
         process_vision.join()
-        #process_obstacle.join()
+        process_obstacle.join()
         bot.stop()
         bot.stop_camera()
         bot.servo.stop()
