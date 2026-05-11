@@ -7,6 +7,8 @@ import time
 from CameraServerClass import CameraServer
 from TRSensors import TRSensors
 from ServoControllerClass import ServoController
+import threading
+import multiprocessing as mp
 
 # LED strip configuration constants:
 LED_COUNT      = 4      # Number of LED pixels.
@@ -18,9 +20,13 @@ LED_INVERT     = False  # True to invert the signal (when using NPN transistor l
 LED_CHANNEL    = 0
 
 # Global flag to shutdown
-stop_event = False
+stop_event = mp.Event()
 # Proportional controller constant
+
 KP = 0.3
+KD = 1.5   
+KI = 0.01 
+
 CENTER = 2000  # Sensor center value
 SPEED = 10 
 OBJECT_RECOGNITION_WEIGHTS_PATH = "weights.h5"
@@ -69,6 +75,9 @@ class AlphaBot2(object):
         # Initialize additional components
         self.tr_sensor = TRSensors()
         self.servo = ServoController()
+        self.servo.center()
+        
+
         self.camera_server = CameraServer()
         # LED Strip Initialization
         self.led_strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, LED_FREQ_HZ,
@@ -164,10 +173,10 @@ class AlphaBot2(object):
 
     def set_leds_default(self):
         """Set a default pattern on the LED strip."""
-        self.set_led(0, 255, 0, 0)    # Red
-        self.set_led(1, 0, 255, 0)    # Green
-        self.set_led(2, 0, 0, 255)    # Blue
-        self.set_led(3, 255, 255, 0)  # Yellow
+        #self.set_led(0, 255, 0, 0)    # Red
+        #self.set_led(1, 0, 255, 0)    # Green
+        #self.set_led(2, 0, 0, 255)    # Blue
+        #self.set_led(3, 255, 255, 0)  # Yellow
         self.update_leds()
         time.sleep(2)
         self.clear_leds()
@@ -215,13 +224,17 @@ class AlphaBot2(object):
                 probs = output[0].softmax(dim=0)
                 top_prob, top_idx = torch.max(probs, dim=0)
                 print(f"Object Recognition: {top_prob.item() * 100:.2f}% {self.imagenet_classes[top_idx.item()]}")
-                # if top_idx.item() == 761:       # remote control
-                    # self.set_led(0, 255, 0, 0)  # LED 1 red
-                # elif top_idx.item() == 784:     # screwdriver
-                    # self.set_led(1, 255, 255, 0)  # LED 2 yellow
-                # elif top_idx.item() == 504:     # coffee mug
-                    # self.set_led(2, 0, 255, 0)  # LED 3 green
-                self.set_led(2, 0, 255, 0)
+                shoe_classes = {502, 514, 630, 770, 774}
+                mug_classes = {504, 647,968}
+                bottle_classes = {440, 720, 737, 898, 907}
+                bot.clear_leds()
+                if top_idx.item() in shoe_classes:  # detect any shoe-related ImageNet class
+                    self.set_led(0, 255, 0, 0)  # LED 1 red
+                elif top_idx.item() in mug_classes:     # coffee mug
+                    self.set_led(1, 255, 255, 0)  # LED 2 yellow
+                elif top_idx.item() in bottle_classes:     # bottle_classes
+                    self.set_led(2, 0, 255, 0)  # LED 3 green
+                #self.set_led(2, 0, 255, 0)
                 self.update_leds()
         except Exception as e:
             print(f"Error during object recognition: {e}")
@@ -240,17 +253,20 @@ class AlphaBot2(object):
         # black_count = sum(1 for v in sensors if v < 400)
         # if black_count == 0:
         # decide direction from last known error
-        # if bot.last_proportional > 0:
-            # bot.setMotor(SPEED, -SPEED)   # search right
+        # if self.last_proportional > 0:
+            # self.setMotor(SPEED, -SPEED)   # search right
         # else:
-            # bot.setMotor(-SPEED, SPEED)   # search left
-        # bot.integral = 0
+            # self.setMotor(-SPEED, SPEED)   # search left
+        # self.integral = 0
         # continue
 
-        bot.setMotor(SPEED - power_difference, SPEED + power_difference)
+        self.setMotor(SPEED - power_difference, SPEED + power_difference)    
+
 
  #########################################################################
+
 if __name__ == '__main__':
+    GPIO.cleanup()
     bot = AlphaBot2()
     bot.set_led(2, 0, 0, 255)    # Blue
     bot.buzzer_on()
@@ -262,11 +278,11 @@ if __name__ == '__main__':
     bot.clear_leds()
 
     ####### CALIBRATION PHASE
-    # print("Calibrating... move robot over line")
+    print("Calibrating... move robot over line")
     # Manual
-    # while True:
-        # print(bot.tr_sensor.AnalogRead())
-        # time.sleep(0.1)
+    #while True:
+    #    print(bot.tr_sensor.AnalogRead())
+    #    time.sleep(0.1)
 
     # Automatic
     # for i in range(200):
@@ -285,29 +301,66 @@ if __name__ == '__main__':
     # print("Calibration done")
     # bot.tr_sensor.calibratedMin = [164, 142, 176, 138, 177]
     # bot.tr_sensor.calibratedMax = [971, 973, 975, 970, 978]
-    
+    # 183, 206 , 218 , 467 , 464 
+    # 
     bot.tr_sensor.calibratedMin = [210, 193, 218, 184, 247]
     bot.tr_sensor.calibratedMax = [956, 957, 960, 951, 949]
 
     print("Min:", bot.tr_sensor.calibratedMin)
     print("Max:", bot.tr_sensor.calibratedMax)
 
+    def drive_loop(stop_event :mp.Event):
+        print("P1 started")
+        while not stop_event.is_set():
+            time.sleep(0.001)
+            print("P1 loop")
+            bot.follow_line()
+
+    def vision_loop(stop_event :mp.Event):
+        print("P2 started")
+        while not stop_event.is_set():
+            print("P2 loop")
+            bot.recognize_object()
+            time.sleep(1)
+
+    def obstacle_loop(stop_event :mp.Event):
+        print("P3 started")
+        detected_object :int=1
+        while not stop_event.is_set():
+            time.sleep(1)
+            print("P3 loop")
+            if bot.infrared_obstacle_check():
+                    for _ in range(detected_object):
+                        bot.buzzer_on()
+                        time.sleep(0.2)
+                        bot.buzzer_off()
+                        time.sleep(0.4)
+                    if detected_object < 3:
+                        detected_object +=1
+                    while bot.infrared_obstacle_check():
+                        time.sleep(0.1)
+
+    process_drive = threading.Thread(target=drive_loop, args=(stop_event,))
+    process_vision = threading.Thread(target=vision_loop, args=(stop_event,))
+    process_obstacle = threading.Thread(target=obstacle_loop, args=(stop_event,))
+    print("start all proceses")
+    process_drive.start()
+    process_vision.start()
+    process_obstacle.start()
+    print("Started all proceses")
+
     try:
-        while not stop_event:
-            ####### FOLLOW LINE
-            bot.follow_line()         
-            ####### DETECT OBSTACLE
-            # if bot.infrared_obstacle_check():
-                # print("Obstacle detected!")
-            
-            bot.clear_leds()
-            ####### RECOGNIZE OBJECT
-            # bot.recognize_object()
+        while not stop_event.is_set():
+            print("Test ENDE ")
+            time.sleep(1)
                         
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected. Stopping execution.")
-        stop_event = True
+        stop_event.set()
     finally:
+        process_drive.join()
+        process_vision.join()
+        process_obstacle.join()
         bot.stop()
         bot.stop_camera()
         bot.servo.stop()
