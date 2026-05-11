@@ -2,6 +2,7 @@ import RPi.GPIO as GPIO
 from rpi_ws281x import Adafruit_NeoPixel, Color
 import torch
 from torchvision import models, transforms
+from torchvision.models.quantization import MobileNet_V2_QuantizedWeights
 import ast
 import time
 from CameraServerClass import CameraServer
@@ -139,15 +140,11 @@ class AlphaBot2(object):
     def load_object_recognition_model(self):
         try:
             self.object_model = models.quantization.mobilenet_v2(
-                weights=None,
+                weights=MobileNet_V2_QuantizedWeights.IMAGENET1K_QNNPACK_V1,
                 quantize=True
             )
-            checkpoint = torch.load(OBJECT_RECOGNITION_WEIGHTS_PATH, map_location="cpu")
-            if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
-                checkpoint = checkpoint["state_dict"]
-            self.object_model.load_state_dict(checkpoint)
             self.object_model.eval()
-            with open(IMAGENET_LABELS_PATH, "r") as f:
+            with open("imagenet1000_clsidx_to_labels.txt", "r") as f:
                 labels_dict = ast.literal_eval(f.read())
                 self.imagenet_classes = [labels_dict[i] for i in range(len(labels_dict))]
             print("Object recognition model loaded successfully.")
@@ -227,7 +224,7 @@ class AlphaBot2(object):
                 shoe_classes = {502, 514, 630, 770, 774}
                 mug_classes = {504, 647,968}
                 bottle_classes = {440, 720, 737, 898, 907}
-                bot.clear_leds()
+                #bot.clear_leds()
                 if top_idx.item() in shoe_classes:  # detect any shoe-related ImageNet class
                     self.set_led(0, 255, 0, 0)  # LED 1 red
                 elif top_idx.item() in mug_classes:     # coffee mug
@@ -247,7 +244,7 @@ class AlphaBot2(object):
         derivative = proportional - bot.last_proportional
         bot.integral += proportional
         bot.last_proportional = proportional
-        power_difference = KP * proportional 
+        power_difference = (KP * proportional) #+ (KI * bot.integral) #+ (KD * derivative)
         
         ### Line recovery
         # black_count = sum(1 for v in sensors if v < 400)
@@ -312,8 +309,8 @@ if __name__ == '__main__':
     def drive_loop(stop_event :mp.Event):
         print("P1 started")
         while not stop_event.is_set():
-            time.sleep(0.001)
-            print("P1 loop")
+            time.sleep(0.01)
+            #print("P1 loop")
             bot.follow_line()
 
     def vision_loop(stop_event :mp.Event):
@@ -327,7 +324,7 @@ if __name__ == '__main__':
         print("P3 started")
         detected_object :int=1
         while not stop_event.is_set():
-            time.sleep(1)
+            time.sleep(0.5)
             print("P3 loop")
             if bot.infrared_obstacle_check():
                     for _ in range(detected_object):
@@ -338,7 +335,7 @@ if __name__ == '__main__':
                     if detected_object < 3:
                         detected_object +=1
                     while bot.infrared_obstacle_check():
-                        time.sleep(0.1)
+                        time.sleep(0.01)
 
     process_drive = threading.Thread(target=drive_loop, args=(stop_event,))
     process_vision = threading.Thread(target=vision_loop, args=(stop_event,))
