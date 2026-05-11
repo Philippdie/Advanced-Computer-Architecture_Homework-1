@@ -29,7 +29,7 @@ KD = 1.5
 KI = 0.01 
 
 CENTER = 2000  # Sensor center value
-SPEED = 10 
+SPEED = 5
 
 class AlphaBot2(object):
     def __init__(self):
@@ -226,7 +226,7 @@ class AlphaBot2(object):
                     self.set_led(0, 255, 0, 0)  # LED 1 red
                 elif top_idx.item() in mug_classes:     # coffee mug
                     self.set_led(1, 255, 255, 0)  # LED 2 yellow
-                elif top_idx.item() in bottle_classes:     # bottle_classes
+                elif top_idx.item() in bottle_classes:     # bottle
                     self.set_led(2, 0, 255, 0)  # LED 3 green
                 #self.set_led(2, 0, 255, 0)
                 self.update_leds()
@@ -236,6 +236,7 @@ class AlphaBot2(object):
     # Follow Line
     def follow_line(self):
         position, sensors = bot.tr_sensor.readLine()
+        bot.setMotor(SPEED, SPEED)
         bot.setMotor(SPEED, SPEED)
         proportional = position - CENTER
         derivative = proportional - bot.last_proportional
