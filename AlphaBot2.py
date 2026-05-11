@@ -9,7 +9,7 @@ from CameraServerClass import CameraServer
 from TRSensors import TRSensors
 from ServoControllerClass import ServoController
 import threading
-#import multiprocessing as mp
+import multiprocessing as mp
 
 # LED strip configuration constants:
 LED_COUNT      = 4      # Number of LED pixels.
@@ -29,7 +29,7 @@ KD = 1.5
 KI = 0.01 
 
 CENTER = 2000  # Sensor center value
-SPEED = 5
+SPEED = 10 
 
 class AlphaBot2(object):
     def __init__(self):
@@ -226,7 +226,7 @@ class AlphaBot2(object):
                     self.set_led(0, 255, 0, 0)  # LED 1 red
                 elif top_idx.item() in mug_classes:     # coffee mug
                     self.set_led(1, 255, 255, 0)  # LED 2 yellow
-                elif top_idx.item() in bottle_classes:     # bottle
+                elif top_idx.item() in bottle_classes:     # bottle_classes
                     self.set_led(2, 0, 255, 0)  # LED 3 green
                 #self.set_led(2, 0, 255, 0)
                 self.update_leds()
@@ -236,7 +236,6 @@ class AlphaBot2(object):
     # Follow Line
     def follow_line(self):
         position, sensors = bot.tr_sensor.readLine()
-        bot.setMotor(SPEED, SPEED)
         bot.setMotor(SPEED, SPEED)
         proportional = position - CENTER
         derivative = proportional - bot.last_proportional
@@ -320,17 +319,18 @@ if __name__ == '__main__':
             if bot.infrared_obstacle_check():
                     for _ in range(detected_object):
                         bot.buzzer_on()
-                        time.sleep(1)
+                        time.sleep(0.2)
                         bot.buzzer_off()
                         time.sleep(0.4)
-                    detected_object +=1
+                    if detected_object > 3:
+                        detected_object +=1
                     while bot.infrared_obstacle_check():
                         time.sleep(0.1)
 
 
-    process_drive = threading.Thread(target=drive_loop)
-    process_vision = threading.Thread(target=vision_loop)
-    process_obstacle = threading.Thread(target=obstacle_loop)
+    process_drive = mp.Process(target=drive_loop)
+    process_vision = mp.Process(target=vision_loop)
+    process_obstacle = mp.Process(target=obstacle_loop)
 
     process_drive.start()
     process_vision.start()
