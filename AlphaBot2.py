@@ -257,7 +257,42 @@ class AlphaBot2(object):
         bot.setMotor(SPEED - power_difference, SPEED + power_difference)    
 
  #########################################################################
+
+    
+def drive_loop(stop_event :bool,bot :AlphaBot2 ):
+    print("r1")
+    while not stop_event:
+        print("r11")
+        bot.follow_line()
+
+def vision_loop(stop_event :bool,bot :AlphaBot2 ):
+    print("r2")
+    while not stop_event:
+        print("r22")
+        bot.recognize_object()
+        time.sleep(1)
+        
+def obstacle_loop(stop_event :bool,bot :AlphaBot2 ):
+    print("r3")
+    detected_object :int=1
+    while not stop_event:
+        time.sleep(1)
+        print("r33")
+        if bot.infrared_obstacle_check():
+                for _ in range(detected_object):
+                    bot.buzzer_on()
+                    time.sleep(0.2)
+                    bot.buzzer_off()
+                    time.sleep(0.4)
+                if detected_object < 3:
+                    detected_object +=1
+                while bot.infrared_obstacle_check():
+                    time.sleep(0.1)
+
+ #########################################################################
+
 if __name__ == '__main__':
+    GPIO.cleanup()
     bot = AlphaBot2()
     bot.set_led(2, 0, 0, 255)    # Blue
     bot.buzzer_on()
@@ -300,46 +335,21 @@ if __name__ == '__main__':
     print("Min:", bot.tr_sensor.calibratedMin)
     print("Max:", bot.tr_sensor.calibratedMax)
 
-    def drive_loop():
-        global stop_event
-        while not stop_event:
-            bot.follow_line()
 
 
-    def vision_loop():
-        global stop_event
-        while not stop_event:
-            bot.recognize_object()
-            time.sleep(1)
-
-    def obstacle_loop():
-        global stop_event
-        detected_object :int=1
-        while not stop_event:
-            if bot.infrared_obstacle_check():
-                    for _ in range(detected_object):
-                        bot.buzzer_on()
-                        time.sleep(0.2)
-                        bot.buzzer_off()
-                        time.sleep(0.4)
-                    if detected_object > 3:
-                        detected_object +=1
-                    while bot.infrared_obstacle_check():
-                        time.sleep(0.1)
-
-
-    process_drive = mp.Process(target=drive_loop)
-    process_vision = mp.Process(target=vision_loop)
-    process_obstacle = mp.Process(target=obstacle_loop)
-
+    process_drive = mp.Process(target=drive_loop, args=(stop_event,bot))
+    process_vision = mp.Process(target=vision_loop, args=(stop_event,bot))
+    process_obstacle = mp.Process(target=obstacle_loop, args=(stop_event,bot))
+    print("r start")
     process_drive.start()
     process_vision.start()
     process_obstacle.start()
-
+    print("Started proceses")
     #time.sleep(2000)
 
     try:
         while not stop_event:
+            print("Test ENDE ")
             time.sleep(1)
                         
     except KeyboardInterrupt:
