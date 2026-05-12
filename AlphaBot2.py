@@ -4,6 +4,7 @@ import torch
 from torchvision import models, transforms
 from torchvision.models.quantization import MobileNet_V2_QuantizedWeights
 import ast
+import queue
 import time
 from CameraServerClass import CameraServer
 from TRSensors import TRSensors
@@ -20,18 +21,16 @@ LED_BRIGHTNESS = 255    # Set to 0 for darkest and 255 for brightest
 LED_INVERT     = False  # True to invert the signal (when using NPN transistor level shift)
 LED_CHANNEL    = 0
 
-# Global flag to shutdown
-stop_event = mp.Event()
 # Proportional controller constant
 
 KP = 0.3
-KD = 1.5   
-KI = 0.01 
+KD = 1.5
+KI = 0.01
 
 CENTER = 2000  # Sensor center value
-SPEED = 10 
+SPEED = 10
 OBJECT_RECOGNITION_WEIGHTS_PATH = "weights.h5"
-IMAGENET_LABELS_PATH = "Additional imagenet1000_clsidx_to_labels.txt"
+IMAGENET_LABELS_PATH = "imagenet1000_clsidx_to_labels.txt"
 
 class AlphaBot2(object):
     def __init__(self):
@@ -77,17 +76,15 @@ class AlphaBot2(object):
         self.tr_sensor = TRSensors()
         self.servo = ServoController()
         self.servo.center()
-        
 
-        self.camera_server = CameraServer()
+
         # LED Strip Initialization
         self.led_strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, LED_FREQ_HZ,
                                             LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
         self.led_strip.begin()
-        # Initialize object recognition model and labels
+        # Object recognition now runs in the vision process.
         self.object_model = None
         self.imagenet_classes = None
-        self.load_object_recognition_model()
 
     def setMotor(self, left, right):
         """
@@ -138,20 +135,7 @@ class AlphaBot2(object):
         self.PWMB.ChangeDutyCycle(max(0, min(100, duty)))
 
     def load_object_recognition_model(self):
-        try:
-            self.object_model = models.quantization.mobilenet_v2(
-                weights=MobileNet_V2_QuantizedWeights.IMAGENET1K_QNNPACK_V1,
-                quantize=True
-            )
-            self.object_model.eval()
-            with open("imagenet1000_clsidx_to_labels.txt", "r") as f:
-                labels_dict = ast.literal_eval(f.read())
-                self.imagenet_classes = [labels_dict[i] for i in range(len(labels_dict))]
-            print("Object recognition model loaded successfully.")
-        except Exception as e:
-            print("Error loading object recognition model:", e)
-            self.object_model = None
-            self.imagenet_classes = None
+        self.object_model, self.imagenet_classes = load_object_recognition_model()
 
     def set_led(self, index, r, g, b):
         """Set a single LED's color."""
@@ -189,63 +173,28 @@ class AlphaBot2(object):
     def buzzer_off(self):
         GPIO.output(self.Buzzer, GPIO.LOW)
 
-    # Camera and Recognition Methods
-    def start_camera(self):
-        self.camera_server.start_server()
+    def apply_recognition_result(self, result):
+        semantic_label = result.get("semantic_label")
 
-    def stop_camera(self):
-        self.camera_server.stop_server()
+        if semantic_label == "shoe":
+            self.set_led(0, 255, 0, 0)
+        elif semantic_label == "mug":
+            self.set_led(1, 255, 255, 0)
+        elif semantic_label == "bottle":
+            self.set_led(2, 0, 255, 0)
 
-    def recognize_object(self):
-        if self.object_model is None or self.imagenet_classes is None:
-            print("Object recognition model not loaded. Cannot recognize object.")
-            return
-        if not hasattr(self, 'camera_server') or not hasattr(self.camera_server, 'picam2'):
-            print("Camera server or PiCamera2 not initialized for object recognition.")
-            return
-        preprocess = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Resize((224, 224)),  # Ensure correct input size
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225]),
-        ])
-        try:
-            with torch.no_grad():
-                frame = self.camera_server.picam2.capture_array()
-                if frame is None:
-                    print("No frame captured for object recognition.")
-                    return
-                input_tensor = preprocess(frame)
-                input_batch = input_tensor.unsqueeze(0)
-                output = self.object_model(input_batch)
-                probs = output[0].softmax(dim=0)
-                top_prob, top_idx = torch.max(probs, dim=0)
-                print(f"Object Recognition: {top_prob.item() * 100:.2f}% {self.imagenet_classes[top_idx.item()]}")
-                shoe_classes = {502, 514, 630, 770, 774}
-                mug_classes = {504, 647,968}
-                bottle_classes = {440, 720, 737, 898, 907}
-                #bot.clear_leds()
-                if top_idx.item() in shoe_classes:  # detect any shoe-related ImageNet class
-                    self.set_led(0, 255, 0, 0)  # LED 1 red
-                elif top_idx.item() in mug_classes:     # coffee mug
-                    self.set_led(1, 255, 255, 0)  # LED 2 yellow
-                elif top_idx.item() in bottle_classes:     # bottle_classes
-                    self.set_led(2, 0, 255, 0)  # LED 3 green
-                #self.set_led(2, 0, 255, 0)
-                self.update_leds()
-        except Exception as e:
-            print(f"Error during object recognition: {e}")
+        self.update_leds()
 
     # Follow Line
     def follow_line(self):
-        position, sensors = bot.tr_sensor.readLine()
-        bot.setMotor(SPEED, SPEED)
+        position, sensors = self.tr_sensor.readLine()
+        self.setMotor(SPEED, SPEED)
         proportional = position - CENTER
-        derivative = proportional - bot.last_proportional
-        bot.integral += proportional
-        bot.last_proportional = proportional
-        power_difference = (KP * proportional) #+ (KI * bot.integral) #+ (KD * derivative)
-        
+        derivative = proportional - self.last_proportional
+        self.integral += proportional
+        self.last_proportional = proportional
+        power_difference = (KP * proportional) #+ (KI * self.integral) #+ (KD * derivative)
+
         ### Line recovery
         # black_count = sum(1 for v in sensors if v < 400)
         # if black_count == 0:
@@ -257,109 +206,267 @@ class AlphaBot2(object):
         # self.integral = 0
         # continue
 
-        self.setMotor(SPEED - power_difference, SPEED + power_difference)    
+        self.setMotor(SPEED - power_difference, SPEED + power_difference)
 
+def load_object_recognition_model():
+    try:
+        object_model = models.quantization.mobilenet_v2(
+            weights=MobileNet_V2_QuantizedWeights.IMAGENET1K_QNNPACK_V1,
+            quantize=True
+        )
+        object_model.eval()
+
+        with open(IMAGENET_LABELS_PATH, "r") as f:
+            labels_dict = ast.literal_eval(f.read())
+            imagenet_classes = [labels_dict[i] for i in range(len(labels_dict))]
+
+        print("Object recognition model loaded successfully.")
+        return object_model, imagenet_classes
+    except Exception as e:
+        print("Error loading object recognition model:", e)
+        return None, None
+
+def map_imagenet_class_to_robot_label(class_id):
+    shoe_classes = {502, 514, 630, 770, 774}
+    mug_classes = {504, 647, 968}
+    bottle_classes = {440, 720, 737, 898, 907}
+
+    if class_id in shoe_classes:
+        return "shoe"
+    if class_id in mug_classes:
+        return "mug"
+    if class_id in bottle_classes:
+        return "bottle"
+    return None
+
+def classify_frame(model, imagenet_classes, frame):
+    if model is None or imagenet_classes is None:
+        print("Object recognition model not loaded. Cannot recognize object.")
+        return None
+    if frame is None:
+        print("No frame captured for object recognition.")
+        return None
+
+    preprocess = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize((224, 224)),  # Ensure correct input size
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225]),
+    ])
+
+    with torch.no_grad():
+        input_tensor = preprocess(frame)
+        input_batch = input_tensor.unsqueeze(0)
+        output = model(input_batch)
+        probs = output[0].softmax(dim=0)
+        top_prob, top_idx = torch.max(probs, dim=0)
+        class_id = top_idx.item()
+        class_name = imagenet_classes[class_id]
+        probability = top_prob.item()
+        semantic_label = map_imagenet_class_to_robot_label(class_id)
+
+        print(f"Object Recognition: {probability * 100:.2f}% {class_name}")
+        if semantic_label is not None:
+            print(f"{semantic_label}!")
+
+        return {
+            "class_id": class_id,
+            "class_name": class_name,
+            "probability": probability,
+            "semantic_label": semantic_label,
+        }
+
+def enqueue_latest_only(target_queue, item):
+    try:
+        if target_queue.full():
+            target_queue.get_nowait()
+        target_queue.put_nowait(item)
+    except Exception as e:
+        pass
+
+def get_latest_if_available(source_queue):
+    try:
+        return source_queue.get_nowait()
+    except Exception as e:
+        return None
 
  #########################################################################
 
-if __name__ == '__main__':
-    GPIO.cleanup()
-    bot = AlphaBot2()
-    bot.set_led(2, 0, 0, 255)    # Blue
-    bot.buzzer_on()
-    time.sleep(0.1)
+def camera_process(frame_queue, stop_event, camera_ready):
+    camera_server = None
+    try:
+        camera_server = CameraServer(frame_queue=frame_queue)
+        camera_server.start_server()
+        camera_ready.set()
+        print("Camera server started. Visit http://<your_pi_ip>:5000/ in your browser.")
+        while not stop_event.is_set():
+            time.sleep(0.1)
+    finally:
+        if camera_server is not None:
+            camera_server.stop_server()
+
+def vision_process(frame_queue, result_queue, stop_event, vision_ready):
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+
+    object_model, imagenet_classes = load_object_recognition_model()
+    if object_model is None or imagenet_classes is None:
+        return
+
+    vision_ready.set()
+
+    while not stop_event.is_set():
+        try:
+            frame_msg = frame_queue.get(timeout=0.1)
+        except queue.Empty:
+            continue
+
+        result = classify_frame(object_model, imagenet_classes, frame_msg.get("frame"))
+        if result is None:
+            continue
+
+        result["timestamp"] = frame_msg.get("timestamp")
+        enqueue_latest_only(result_queue, result)
+
+        time.sleep(0.2)
+
+def beep_pattern(bot, count, stop_event):
+    for _ in range(count):
+        if stop_event.is_set():
+            break
+
+        bot.buzzer_on()
+        time.sleep(0.2)
+        bot.buzzer_off()
+        time.sleep(0.4)
+
     bot.buzzer_off()
-    bot.start_camera()
-    print("Camera server started. Visit http://<your_pi_ip>:5000/ in your browser.")
-    time.sleep(2)
-    bot.clear_leds()
 
-    ####### CALIBRATION PHASE
-    print("Calibrating... move robot over line")
-    # Manual
-    #while True:
-    #    print(bot.tr_sensor.AnalogRead())
-    #    time.sleep(0.1)
 
-    # Automatic
-    # for i in range(200):
-        # if (i // 50) % 2 == 0:
-            # bot.setMotor(10, -10)
-        # else:
-            # bot.setMotor(-10, 10)
+def main_process():
+    stop_event = mp.Event()
+    camera_ready = mp.Event()
+    vision_ready = mp.Event()
+    frame_queue = mp.Queue(maxsize=1)
+    result_queue = mp.Queue(maxsize=1)
 
-        # bot.tr_sensor.calibrate()
-        # time.sleep(0.02)
+    camera_proc = mp.Process(
+        target=camera_process,
+        args=(frame_queue, stop_event, camera_ready),
+        daemon=True,
+    )
+    vision_proc = mp.Process(
+        target=vision_process,
+        args=(frame_queue, result_queue, stop_event, vision_ready),
+        daemon=True,
+    )
 
-    # bot.stop()
-    # print("Min:", bot.tr_sensor.calibratedMin)
-    # print("Max:", bot.tr_sensor.calibratedMax)
-
-    # print("Calibration done")
-    # bot.tr_sensor.calibratedMin = [164, 142, 176, 138, 177]
-    # bot.tr_sensor.calibratedMax = [971, 973, 975, 970, 978]
-    # 183, 206 , 218 , 467 , 464 
-    # 
-    bot.tr_sensor.calibratedMin = [210, 193, 218, 184, 247]
-    bot.tr_sensor.calibratedMax = [956, 957, 960, 951, 949]
-
-    print("Min:", bot.tr_sensor.calibratedMin)
-    print("Max:", bot.tr_sensor.calibratedMax)
-
-    def drive_loop(stop_event :mp.Event):
-        print("P1 started")
-        while not stop_event.is_set():
-            time.sleep(0.01)
-            #print("P1 loop")
-            bot.follow_line()
-
-    def vision_loop(stop_event :mp.Event):
-        print("P2 started")
-        while not stop_event.is_set():
-            print("P2 loop")
-            bot.recognize_object()
-            time.sleep(1)
-
-    def obstacle_loop(stop_event :mp.Event):
-        print("P3 started")
-        detected_object :int=1
-        while not stop_event.is_set():
-            time.sleep(0.5)
-            print("P3 loop")
-            if bot.infrared_obstacle_check():
-                    for _ in range(detected_object):
-                        bot.buzzer_on()
-                        time.sleep(0.2)
-                        bot.buzzer_off()
-                        time.sleep(0.4)
-                    if detected_object < 3:
-                        detected_object +=1
-                    while bot.infrared_obstacle_check():
-                        time.sleep(0.01)
-
-    process_drive = threading.Thread(target=drive_loop, args=(stop_event,))
-    process_vision = threading.Thread(target=vision_loop, args=(stop_event,))
-    process_obstacle = threading.Thread(target=obstacle_loop, args=(stop_event,))
-    print("start all proceses")
-    process_drive.start()
-    process_vision.start()
-    process_obstacle.start()
-    print("Started all proceses")
+    bot = None
+    beep_thread = None
 
     try:
+        camera_proc.start()
+        vision_proc.start()
+
+        if not camera_ready.wait(timeout=30):
+            print("Camera process failed to start.")
+            return
+        if not vision_ready.wait(timeout=60):
+            print("Vision process failed to start.")
+            return
+
+        GPIO.cleanup()
+        bot = AlphaBot2()
+        bot.set_led(2, 0, 0, 255)    # Blue
+        bot.buzzer_on()
+        time.sleep(0.1)
+        bot.buzzer_off()
+        time.sleep(2)
+        bot.clear_leds()
+
+        ####### CALIBRATION PHASE
+        print("Calibrating... move robot over line")
+        # Manual
+        #while True:
+        #    print(bot.tr_sensor.AnalogRead())
+        #    time.sleep(0.1)
+
+        # Automatic
+        # for i in range(200):
+            # if (i // 50) % 2 == 0:
+                # bot.setMotor(10, -10)
+            # else:
+                # bot.setMotor(-10, 10)
+
+            # bot.tr_sensor.calibrate()
+            # time.sleep(0.02)
+
+        # bot.stop()
+        # print("Min:", bot.tr_sensor.calibratedMin)
+        # print("Max:", bot.tr_sensor.calibratedMax)
+
+        # print("Calibration done")
+        # bot.tr_sensor.calibratedMin = [164, 142, 176, 138, 177]
+        # bot.tr_sensor.calibratedMax = [971, 973, 975, 970, 978]
+        # 183, 206 , 218 , 467 , 464
+        #
+        bot.tr_sensor.calibratedMin = [210, 193, 218, 184, 247]
+        bot.tr_sensor.calibratedMax = [956, 957, 960, 951, 949]
+
+        print("Min:", bot.tr_sensor.calibratedMin)
+        print("Max:", bot.tr_sensor.calibratedMax)
+
+        detected_object = 1
+        obstacle_was_present = False
+
+        print("Started camera process, vision process, and control loop")
         while not stop_event.is_set():
-            print("Test ENDE ")
-            time.sleep(1)
-                        
+            obstacle_detected = bot.infrared_obstacle_check()
+
+            if obstacle_detected:
+                if not obstacle_was_present:
+                    if beep_thread is None or not beep_thread.is_alive():
+                        beep_thread = threading.Thread(
+                            target=beep_pattern,
+                            args=(bot, detected_object, stop_event),
+                            daemon=True,
+                        )
+                        beep_thread.start()
+
+                    if detected_object < 3:
+                        detected_object += 1
+
+                obstacle_was_present = True
+            else:
+                obstacle_was_present = False
+
+            bot.follow_line()
+
+            result = get_latest_if_available(result_queue)
+            if result is not None:
+                bot.apply_recognition_result(result)
+
+            time.sleep(0.001)
+
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected. Stopping execution.")
         stop_event.set()
     finally:
-        process_drive.join()
-        process_vision.join()
-        process_obstacle.join()
-        bot.stop()
-        bot.stop_camera()
-        bot.servo.stop()
+        stop_event.set()
+
+        if beep_thread is not None and beep_thread.is_alive():
+            beep_thread.join(timeout=1)
+
+        camera_proc.join(timeout=3)
+        vision_proc.join(timeout=3)
+
+        if bot is not None:
+            bot.buzzer_off()
+            bot.stop()
+            bot.servo.stop()
         GPIO.cleanup()
         print("All operations stopped. Exiting program.")
+
+
+if __name__ == '__main__':
+    main_process()
