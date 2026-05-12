@@ -334,7 +334,6 @@ def beep_pattern(bot, count, stop_event):
     for _ in range(count):
         if stop_event.is_set():
             break
-
         bot.buzzer_on()
         time.sleep(0.2)
         bot.buzzer_off()
@@ -432,9 +431,10 @@ def main_process():
                             daemon=True,
                         )
                         beep_thread.start()
+                        if detected_object < 3:
+                            detected_object += 1
 
-                    if detected_object < 3:
-                        detected_object += 1
+                    
 
                 obstacle_was_present = True
             else:
