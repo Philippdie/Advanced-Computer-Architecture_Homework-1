@@ -224,12 +224,15 @@ class AlphaBot2(object):
                 shoe_classes = {502, 514, 630, 770, 774}
                 mug_classes = {504, 647,968}
                 bottle_classes = {440, 720, 737, 898, 907}
-                #bot.clear_leds()
+                #self.clear_leds()
                 if top_idx.item() in shoe_classes:  # detect any shoe-related ImageNet class
+                    print("shoe!")
                     self.set_led(0, 255, 0, 0)  # LED 1 red
                 elif top_idx.item() in mug_classes:     # coffee mug
+                    print("mug!")
                     self.set_led(1, 255, 255, 0)  # LED 2 yellow
                 elif top_idx.item() in bottle_classes:     # bottle_classes
+                    print("bottle!")
                     self.set_led(2, 0, 255, 0)  # LED 3 green
                 #self.set_led(2, 0, 255, 0)
                 self.update_leds()
@@ -238,13 +241,13 @@ class AlphaBot2(object):
 
     # Follow Line
     def follow_line(self):
-        position, sensors = bot.tr_sensor.readLine()
-        bot.setMotor(SPEED, SPEED)
+        position, sensors = self.tr_sensor.readLine()
+        self.setMotor(SPEED, SPEED)
         proportional = position - CENTER
-        derivative = proportional - bot.last_proportional
-        bot.integral += proportional
-        bot.last_proportional = proportional
-        power_difference = (KP * proportional) #+ (KI * bot.integral) #+ (KD * derivative)
+        derivative = proportional - self.last_proportional
+        self.integral += proportional
+        self.last_proportional = proportional
+        power_difference = (KP * proportional) #+ (KI * self.integral) #+ (KD * derivative)
         
         ### Line recovery
         # black_count = sum(1 for v in sensors if v < 400)
@@ -303,6 +306,8 @@ if __name__ == '__main__':
     bot.tr_sensor.calibratedMin = [210, 193, 218, 184, 247]
     bot.tr_sensor.calibratedMax = [956, 957, 960, 951, 949]
 
+    print("modified")
+
     print("Min:", bot.tr_sensor.calibratedMin)
     print("Max:", bot.tr_sensor.calibratedMax)
 
@@ -318,7 +323,7 @@ if __name__ == '__main__':
         while not stop_event.is_set():
             print("P2 loop")
             bot.recognize_object()
-            time.sleep(1)
+            time.sleep(2)
 
     def obstacle_loop(stop_event :mp.Event):
         print("P3 started")
@@ -337,27 +342,68 @@ if __name__ == '__main__':
                     while bot.infrared_obstacle_check():
                         time.sleep(0.01)
 
-    process_drive = threading.Thread(target=drive_loop, args=(stop_event,))
-    process_vision = threading.Thread(target=vision_loop, args=(stop_event,))
-    process_obstacle = threading.Thread(target=obstacle_loop, args=(stop_event,))
-    print("start all proceses")
-    process_drive.start()
-    process_vision.start()
-    process_obstacle.start()
-    print("Started all proceses")
+    #process_drive = threading.Thread(target=drive_loop, args=(stop_event,))
+    #process_vision = threading.Thread(target=vision_loop, args=(stop_event,))
+    #process_obstacle = threading.Thread(target=obstacle_loop, args=(stop_event,))
+    #print("start all proceses")
+    #process_drive.start()
+    #process_vision.start()
+    #process_obstacle.start()
+    #print("Started all proceses")
 
     try:
-        while not stop_event.is_set():
-            print("Test ENDE ")
-            time.sleep(1)
+        FOLLOW_LINE_TESTS = 100
+        RECOGNIZE_OBJECT_TESTS = 30
+        OBSTACLE_CHECK_TESTS = 100
+
+        ## Follow line benchmark
+        start = time.perf_counter()
+        for i in range(FOLLOW_LINE_TESTS):
+            bot.follow_line()
+        end = time.perf_counter()
+        follow_line_total_time = end - start
+        follow_line_per_iteration = follow_line_total_time / FOLLOW_LINE_TESTS
+        print(
+            f"  total time         : {follow_line_total_time:.6f}\n"
+            f"  per iteration time : {follow_line_per_iteration:.6f}\n"
+        )
+
+        ## Recognize object benchmark
+        start = time.perf_counter()
+        for i in range(RECOGNIZE_OBJECT_TESTS):
+            bot.recognize_object()
+        end = time.perf_counter()
+        recognize_object_total_time = end - start
+        recognize_object_per_iteration = recognize_object_total_time / RECOGNIZE_OBJECT_TESTS
+        print(
+            f"  total time         : {recognize_object_total_time:.6f}\n"
+            f"  per iteration time : {recognize_object_per_iteration:.6f}\n"
+        )
+
+        ## Infrared obstacle check benchmark
+        start = time.perf_counter()
+        for i in range(OBSTACLE_CHECK_TESTS):
+            bot.infrared_obstacle_check()
+        end = time.perf_counter()
+        obstacle_check_total_time = end - start
+        obstacle_check_per_iteration = obstacle_check_total_time / OBSTACLE_CHECK_TESTS
+        print(
+            f"  total time         : {obstacle_check_total_time:.6f}\n"
+            f"  per iteration time : {obstacle_check_per_iteration:.6f}\n"
+        )
+
+
+        #while not stop_event.is_set():
+        #    print("Test ENDE ")
+        #    time.sleep(1)
                         
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected. Stopping execution.")
         stop_event.set()
     finally:
-        process_drive.join()
-        process_vision.join()
-        process_obstacle.join()
+        #process_drive.join()
+        #process_vision.join()
+        #process_obstacle.join()
         bot.stop()
         bot.stop_camera()
         bot.servo.stop()
