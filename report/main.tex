@@ -140,7 +140,7 @@ The vision process loads MobileNet once. It limits Torch to one thread, reads fr
 
 Obstacle detection remains in the main process because it is cheap and tied to the buzzer. We keep \texttt{obstacle\_was\_present} to count only the edge of an obstacle; otherwise the same object would be counted many times while it stayed in front of the sensor. The buzzer pattern runs in a short thread, so beeping does not stop \texttt{follow\_line} from being called.
 
-We use processes only for the two parts that can delay driving: grabbing frames and running the neural network. The loop that steers the robot stays short: infrared check, possible buzzer trigger, \texttt{follow\_line}, optional LED update, and a 1 ms sleep. The queues carry frames and classification dictionaries; they never carry the \texttt{AlphaBot2} object.
+We use processes only for the two parts that can delay driving: grabbing frames and running the neural network. The loop that steers the robot stays fast: infrared check, possible buzzer trigger, \texttt{follow\_line}, optional LED update, and a 1 ms sleep. The queues carry frames and classification dictionaries; they never carry the \texttt{AlphaBot2} object.
 
 \section{Results (heavy revision needed / missing contents)}
 
