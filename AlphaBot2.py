@@ -28,7 +28,7 @@ KD = 1.5
 KI = 0.01
 
 CENTER = 2000  # Sensor center value
-SPEED = 10
+SPEED = 13
 OBJECT_RECOGNITION_WEIGHTS_PATH = "weights.h5"
 IMAGENET_LABELS_PATH = "imagenet1000_clsidx_to_labels.txt"
 
@@ -227,7 +227,7 @@ def load_object_recognition_model():
         return None, None
 
 def map_imagenet_class_to_robot_label(class_id):
-    shoe_classes = {502, 514, 630, 770, 774}
+    shoe_classes = {502, 514, 630, 770, 774, 788}
     mug_classes = {504, 647, 968}
     bottle_classes = {440, 720, 737, 898, 907}
 
