@@ -8,16 +8,16 @@
 \title{Advanced Computer Architecture\\Homework 1: Multithreading AlphaBot2}
 \author{
     Philipp Dietle\\
-    Matriculation ID: \texttt{TODO}
+    Matriculation ID: \texttt{4740093}
     \and
     Lorenz Scherrer\\
-    Matriculation ID: \texttt{TODO}
+    Matriculation ID: \texttt{4749927}
     \and
     Gioele Pettarini\\
-    Matriculation ID: \texttt{TODO}
+    Matriculation ID: \texttt{4767919}
 }
 \date{
-    Group: \texttt{TODO}
+    Group: \texttt{Uebung 2 Group 1}
     \quad
     Robot: 8
 }
@@ -142,7 +142,7 @@ Obstacle detection remains in the main process because it is cheap and tied to t
 
 We use processes only for the two parts that can delay driving: grabbing frames and running the neural network. The loop that steers the robot stays fast: infrared check, possible buzzer trigger, \texttt{follow\_line}, optional LED update, and a 1 ms sleep. The queues carry frames and classification dictionaries; they never carry the \texttt{AlphaBot2} object.
 
-\section{Results (heavy revision needed / missing contents)}
+\section{Results }
 
 The final implementation should be evaluated against the assignment requirements:
 \begin{enumerate}
@@ -153,10 +153,11 @@ The final implementation should be evaluated against the assignment requirements
     \item round-trip time on the track.
 \end{enumerate}
 
-Compared with the sequential implementation, the expected improvement comes from preventing camera recognition from blocking line following. The benchmark results support this design decision because recognition is approximately 25 times slower than one line-following iteration.
+Compared with the sequential implementation, the expected improvement comes from preventing camera recognition from blocking the  line following. The benchmark results support this design decision because recognition is approximately 25 times slower than one line-following iteration. In comparison to the native approach the multithreaded variant works significantly better. Keeping the line following and obstacle detection in the same thread works good because of the sort runtime of the tasks. Another advantage of this approach is that the hardware tasks are done by the same thread which reduces latency of data movement between the cores. Splitting the object recognition into a camera process and a vision process is also advantageous because it splits the heavy workload across multiple processes, which reduces latency through parallelism.
 
-\section{Conclusion (heavy revision needed / missing contents)}
+\section{Conclusion }
 
-The sequential implementation showed that object recognition cannot be placed directly in the main control loop without harming navigation. Benchmarking identified camera inference as the dominant cost, while line following and infrared checks were comparatively lightweight. The final solution therefore separates the time-critical control loop from slower background tasks and uses shared state only for the information needed by the buzzer and LED behavior.
+The sequential implementation showed that object recognition cannot be placed directly in the main control loop without harming navigation. Benchmarking identified camera inference as the dominant cost, while line following and infrared checks were comparatively lightweight. The final solution therefore separates the time-critical control loop from slower background tasks and uses shared state only for the information needed by the buzzer and LED behavior. Using multiprocessing for the buzzing and LED behavior would be more complicated because Proses copy objects in there initiation arguments which would lead to errors because the hardware can only be controlled by one robot controller instance. Using two processes for the object recognition is good because the two processes have no shared variables besides the image queue.
 
 \end{document}
+
